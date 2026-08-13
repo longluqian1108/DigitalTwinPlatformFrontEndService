@@ -1,0 +1,9 @@
+{
+  "schema_version": "1.0.0",
+  "document_kind": "resource",
+  "aircraft": [
+    { "aircraft_id": "AC-101", "profile_id": "FW-A", "model_type": "fixed_wing" },
+    { "aircraft_id": "AC-102", "profile_id": "MR-A", "model_type": "multirotor" },
+    { "aircraft_id": "AC-103", "profile_id": "FW-A", "model_type": "fixed_wing" }
+  ]
+}

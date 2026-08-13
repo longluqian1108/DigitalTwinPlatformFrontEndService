@@ -1,0 +1,6 @@
+{
+  "schema_version": "1.0.0",
+  "document_kind": "task",
+  "warning": true,
+  "tasks": [{ "task_id": "TASK-WARN", "aircraft_id": "AC-101", "origin": "PAD-A", "destination": "RWY-09" }]
+}

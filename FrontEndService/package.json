@@ -1,0 +1,38 @@
+{
+  "name": "lightbluesky-frontend-service",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "dev": "vite",
+    "build": "vue-tsc -b && vite build",
+    "preview": "vite preview",
+    "typecheck": "vue-tsc -b",
+    "test": "vitest run --exclude tests/unit/performance.spec.ts",
+    "test:performance": "vitest run tests/unit/performance.spec.ts",
+    "test:watch": "vitest",
+    "test:e2e": "playwright test"
+  },
+  "dependencies": {
+    "cesium": "^1.131.0",
+    "naive-ui": "^2.43.2",
+    "pinia": "^3.0.3",
+    "vue": "^3.5.18"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.54.2",
+    "@axe-core/playwright": "^4.10.2",
+    "@types/node": "^24.2.1",
+    "@vitejs/plugin-vue": "^6.0.1",
+    "@vue/test-utils": "^2.4.6",
+    "jsdom": "^26.1.0",
+    "typescript": "~5.8.3",
+    "vite": "^7.1.2",
+    "vite-plugin-static-copy": "^3.1.1",
+    "vitest": "^3.2.4",
+    "vue-tsc": "^3.0.5"
+  }
+}

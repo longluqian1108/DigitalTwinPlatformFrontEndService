@@ -1,0 +1,12 @@
+{
+  "schema_version": "1.0.0",
+  "document_kind": "environment",
+  "scenario_name": "Virtual ENU demonstration airfield",
+  "coordinate_mode": "virtual_enu",
+  "origin": { "u_m": 0, "v_m": 0, "alt_m": 0 },
+  "facilities": [
+    { "facility_id": "PAD-A", "kind": "pad", "u_m": -310, "v_m": -110 },
+    { "facility_id": "RWY-09", "kind": "runway_end", "u_m": 220, "v_m": 115 }
+  ],
+  "obstacles": [{ "obstacle_id": "OBS-1", "u_m": 45, "v_m": -30, "height_m": 70 }]
+}

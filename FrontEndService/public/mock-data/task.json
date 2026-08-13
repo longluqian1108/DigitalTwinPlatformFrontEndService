@@ -1,0 +1,8 @@
+{
+  "schema_version": "1.0.0",
+  "document_kind": "task",
+  "tasks": [
+    { "task_id": "TASK-001", "aircraft_id": "AC-101", "origin": "PAD-A", "destination": "RWY-09", "scheduled_takeoff_s": 15 },
+    { "task_id": "TASK-002", "aircraft_id": "AC-102", "origin": "HGR-01", "destination": "PAD-B", "scheduled_takeoff_s": 45 }
+  ]
+}
