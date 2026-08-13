@@ -6,7 +6,7 @@ button, input, textarea { font: inherit; }
 button { color: inherit; }
 .panel { min-width: 0; min-height: 0; background: linear-gradient(180deg, rgb(16 31 48 / 96%), rgb(9 22 35 / 98%)); border: 1px solid var(--line); }
 .panel-title { display: flex; align-items: center; min-height: 38px; padding: 0 12px; border-bottom: 1px solid var(--line); color: #a9c0d1; font-size: 11px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; }
-.scroll { overflow: auto; scrollbar-color: #355269 transparent; scrollbar-width: thin; }
+.scroll { min-width: 0; min-height: 0; overflow: auto; overscroll-behavior: contain; scrollbar-color: #355269 transparent; scrollbar-width: thin; }
 .mono { font-family: "SFMono-Regular", Consolas, monospace; font-variant-numeric: tabular-nums; }
 .muted { color: var(--muted); }
 .error-text { color: var(--red); }
