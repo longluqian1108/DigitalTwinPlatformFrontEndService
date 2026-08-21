@@ -3,8 +3,16 @@ export const CONTRACT_VERSION = '1.0.0' as const
 export type DocumentKind = 'environment' | 'resource' | 'task'
 export type DocumentSlotState = 'EMPTY' | 'VALID' | 'INVALID' | 'CONFIRMED'
 export type SessionState =
-  | 'EMPTY' | 'STAGED' | 'BUILDING' | 'BUILD_FAILED' | 'READY'
-  | 'RUNNING' | 'PAUSED' | 'STOPPED' | 'WORKER_FAILED' | 'CLOSED'
+  | 'EMPTY'
+  | 'STAGED'
+  | 'BUILDING'
+  | 'BUILD_FAILED'
+  | 'READY'
+  | 'RUNNING'
+  | 'PAUSED'
+  | 'STOPPED'
+  | 'WORKER_FAILED'
+  | 'CLOSED'
 export type ConnectionState = 'idle' | 'connecting' | 'connected' | 'disconnected' | 'failed'
 
 export interface ValidationIssue {
@@ -38,8 +46,18 @@ export interface DocumentSlot {
 
 export type CoordinateMode = 'virtual_enu' | 'real_world_wgs84'
 
-export interface PreviewPoint { id: string; label: string; x: number; y: number; kind: 'aircraft' | 'facility' | 'obstacle' }
-export interface PreviewRoute { id: string; taskId: string; points: Array<{ x: number; y: number }> }
+export interface PreviewPoint {
+  id: string
+  label: string
+  x: number
+  y: number
+  kind: 'aircraft' | 'facility' | 'obstacle'
+}
+export interface PreviewRoute {
+  id: string
+  taskId: string
+  points: Array<{ x: number; y: number }>
+}
 export interface StagedPreview {
   contract_version: typeof CONTRACT_VERSION
   scenario_id: string
@@ -159,21 +177,54 @@ export interface GatewayError {
   error: { code: string; message: string; details?: Record<string, unknown> }
 }
 
-export interface FreshResponse<T = unknown> extends Freshness { data: T }
-export interface CommandSubmission { text: string; command_id?: string; epoch_id: string }
+export interface FreshResponse<T = unknown> extends Freshness {
+  data: T
+}
+export interface CommandSubmission {
+  text: string
+  command_id?: string
+  epoch_id: string
+}
 export type SubmitResult =
   | { kind: 'error'; error: GatewayError }
   | { kind: 'query'; response: FreshResponse }
   | { kind: 'command'; receipt: CommandStatusView }
 
 export type ControlMessage =
-  | { type: 'hello'; protocol_version: typeof CONTRACT_VERSION; epoch_id: string; control_sequence: number }
-  | { type: 'full_state'; protocol_version: typeof CONTRACT_VERSION; epoch_id: string; control_sequence: number; state: FullState }
-  | { type: 'snapshot_static_table'; protocol_version: typeof CONTRACT_VERSION; epoch_id: string; control_sequence: number; entries: SnapshotStaticEntry[] }
+  | {
+      type: 'hello'
+      protocol_version: typeof CONTRACT_VERSION
+      epoch_id: string
+      control_sequence: number
+    }
+  | {
+      type: 'full_state'
+      protocol_version: typeof CONTRACT_VERSION
+      epoch_id: string
+      control_sequence: number
+      state: FullState
+    }
+  | {
+      type: 'snapshot_static_table'
+      protocol_version: typeof CONTRACT_VERSION
+      epoch_id: string
+      control_sequence: number
+      entries: SnapshotStaticEntry[]
+    }
   | EventEnvelope
   | CommandStatusView
-  | { type: 'connection_boundary'; protocol_version: typeof CONTRACT_VERSION; epoch_id: string; message: string }
-  | { type: 'worker_failed'; protocol_version: typeof CONTRACT_VERSION; epoch_id: string; message: string }
+  | {
+      type: 'connection_boundary'
+      protocol_version: typeof CONTRACT_VERSION
+      epoch_id: string
+      message: string
+    }
+  | {
+      type: 'worker_failed'
+      protocol_version: typeof CONTRACT_VERSION
+      epoch_id: string
+      message: string
+    }
 
 export interface SnapshotFrame {
   epochId: string

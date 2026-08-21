@@ -19,6 +19,12 @@ test('builds the mock scenario and runs query/control paths', async ({ page }, t
   await page.getByRole('textbox', { name: 'Command line input' }).press('Enter')
   await page.getByRole('button', { name: 'QUERY RESULT' }).click()
   await expect(page.getByText(/"operation": "TIME"/)).toBeVisible()
-  await page.screenshot({ path: path.join(root, 'tests/screenshots/running-workbench.png'), fullPage: true })
-  await testInfo.attach('running-workbench', { body: await page.screenshot({ fullPage: true }), contentType: 'image/png' })
+  await page.screenshot({
+    path: path.join(root, 'tests/screenshots/running-workbench.png'),
+    fullPage: true,
+  })
+  await testInfo.attach('running-workbench', {
+    body: await page.screenshot({ fullPage: true }),
+    contentType: 'image/png',
+  })
 })
