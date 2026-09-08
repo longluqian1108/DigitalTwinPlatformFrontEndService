@@ -1,8 +1,10 @@
 <script setup lang="ts">
 import { computed } from 'vue'
+import type { DocumentKind, DocumentSlot } from '@/contracts'
 import { useSessionStore } from '@/stores/sessionStore'
 const session = useSessionStore()
-const issues = computed(() => Object.values(session.slots).flatMap((slot) => [...(slot.report?.errors ?? []), ...(slot.report?.warnings ?? [])]))
+const kinds: DocumentKind[] = ['environment', 'resource', 'task']
+const issues = computed(() => kinds.flatMap((kind) => { const slot: DocumentSlot = session.slots[kind]; return [...(slot.report?.errors ?? []), ...(slot.report?.warnings ?? [])] }))
 </script>
 <template>
   <section class="issues">

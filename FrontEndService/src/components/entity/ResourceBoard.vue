@@ -1,26 +1,30 @@
 <script setup lang="ts">
 import { NCollapse, NCollapseItem, NTag } from 'naive-ui'
 import { computed, ref } from 'vue'
-import type { FacilityReadModel } from '@/contracts'
+import type { ResourceReadModel } from '@/contracts'
 import { useResourceStore } from '@/stores/resourceStore'
 import { useSelectionStore } from '@/stores/selectionStore'
+// A-09: ResourceReadModel replaces the local FacilityReadModel (resource_kind,
+// occupying_aircraft_ids; blocking_reason is no longer a top-level field).
+// Aircraft rows use the generated AircraftReadModel (current_task_id, optional display_name).
 const resources = useResourceStore(), selection = useSelectionStore(), view = ref<'aircraft' | 'facilities'>('aircraft')
-const grouped = computed(() => resources.facilities.reduce<Partial<Record<FacilityReadModel['kind'], FacilityReadModel[]>>>((result, item) => {
-  ;(result[item.kind] ??= []).push(item)
+const kinds: ResourceReadModel['resource_kind'][] = ['HANGAR', 'PAD', 'RUNWAY_END']
+const grouped = computed(() => resources.resources.reduce<Partial<Record<ResourceReadModel['resource_kind'], ResourceReadModel[]>>>((result, item) => {
+  ;(result[item.resource_kind] ??= []).push(item)
   return result
 }, {}))
 </script>
 <template>
   <div class="resource-board">
-    <nav><button :class="{ active: view === 'aircraft' }" @click="view = 'aircraft'">Aircraft <b>{{ resources.aircraft.length }}</b></button><button :class="{ active: view === 'facilities' }" @click="view = 'facilities'">Facilities <b>{{ resources.facilities.length }}</b></button></nav>
+    <nav><button :class="{ active: view === 'aircraft' }" @click="view = 'aircraft'">Aircraft <b>{{ resources.aircraft.length }}</b></button><button :class="{ active: view === 'facilities' }" @click="view = 'facilities'">Facilities <b>{{ resources.resources.length }}</b></button></nav>
     <div class="scroll content">
       <NCollapse v-if="view === 'aircraft'" accordion>
         <NCollapseItem v-for="aircraft in resources.aircraft" :key="aircraft.aircraft_id" :name="aircraft.aircraft_id" @click="selection.select(aircraft.aircraft_id)">
           <template #header><div class="item-head"><span class="mono">{{ aircraft.aircraft_id }}</span><NTag size="tiny" :type="aircraft.resource_state === 'AVAILABLE' ? 'success' : aircraft.resource_state === 'DESTROYED' ? 'error' : 'info'">{{ aircraft.resource_state }}</NTag></div></template>
-          <dl><dt>Display name</dt><dd>{{ aircraft.display_name }}</dd><dt>Model</dt><dd>{{ aircraft.model_type }}</dd><dt>Current Task</dt><dd>{{ aircraft.task_id ?? '—' }}</dd><dt>Placed</dt><dd>{{ aircraft.placed ? 'YES' : 'NO' }}</dd><dt>Derived state</dt><dd>{{ aircraft.destroyed ? 'DESTROYED' : aircraft.placed ? 'ACTIVE' : 'REGISTERED' }}</dd></dl>
+          <dl><dt>Display name</dt><dd>{{ aircraft.display_name ?? aircraft.aircraft_id }}</dd><dt>Model</dt><dd>{{ aircraft.model_type }}</dd><dt>Current Task</dt><dd>{{ aircraft.current_task_id ?? '—' }}</dd><dt>Placed</dt><dd>{{ aircraft.placed ? 'YES' : 'NO' }}</dd><dt>Derived state</dt><dd>{{ aircraft.destroyed ? 'DESTROYED' : aircraft.placed ? 'ACTIVE' : 'REGISTERED' }}</dd></dl>
         </NCollapseItem>
       </NCollapse>
-      <template v-else><section v-for="kind in ['HANGAR','PAD','RUNWAY_END']" :key="kind"><h3>{{ kind.replace('_', ' ') }}S</h3><article v-for="facility in grouped[kind] ?? []" :key="facility.resource_id" class="facility" @click="selection.select(facility.resource_id)"><div><strong class="mono">{{ facility.resource_id }}</strong><NTag size="tiny" :type="facility.availability === 'OPEN' ? 'success' : 'warning'">{{ facility.availability }}</NTag></div><p>Owners: {{ facility.owner_task_ids.join(', ') || '—' }}</p><p>Occupancy: {{ facility.occupancy_aircraft_ids.join(', ') || '—' }}</p><small v-if="facility.blocking_reason">{{ facility.blocking_reason }}</small></article></section></template>
+      <template v-else><section v-for="kind in kinds" :key="kind"><h3>{{ kind.replace('_', ' ') }}S</h3><article v-for="facility in grouped[kind] ?? []" :key="facility.resource_id" class="facility" @click="selection.select(facility.resource_id)"><div><strong class="mono">{{ facility.resource_id }}</strong><NTag size="tiny" :type="facility.availability === 'OPEN' ? 'success' : 'warning'">{{ facility.availability }}</NTag></div><p>Owners: {{ facility.owner_task_ids.join(', ') || '—' }}</p><p>Occupancy: {{ facility.occupying_aircraft_ids.join(', ') || '—' }}</p><small v-if="facility.warning_count">{{ facility.warning_count }} active warning(s)</small></article></section></template>
     </div>
   </div>
 </template>

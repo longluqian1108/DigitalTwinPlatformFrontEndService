@@ -5,9 +5,12 @@ for (let i = 0; i < 256; i += 1) {
   table[i] = value >>> 0
 }
 
-export function crc32c(bytes: Uint8Array): number {
+export function crc32c(bytes: Uint8Array, zeroStart = -1, zeroLength = 0): number {
   let crc = 0xffffffff
-  for (let index = 0; index < bytes.length; index += 1)
-    crc = (crc >>> 8) ^ (table[(crc ^ bytes[index]!) & 0xff] ?? 0)
+  const zeroEnd = zeroStart + zeroLength
+  for (let index = 0; index < bytes.length; index += 1) {
+    const byte = index >= zeroStart && index < zeroEnd ? 0 : bytes[index]!
+    crc = (crc >>> 8) ^ (table[(crc ^ byte) & 0xff] ?? 0)
+  }
   return (crc ^ 0xffffffff) >>> 0
 }

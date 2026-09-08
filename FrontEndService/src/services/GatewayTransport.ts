@@ -1,49 +1,76 @@
+// A-07/A-08 (frontend adaptation guide): the transport surface now mirrors the
+// backend gateway bindings one-to-one (GATEWAY_HTTP_BINDINGS, contract v1.0.0).
 import type {
-  ControlMessage,
+  BuildJob,
+  BuildStatusResponse,
+  CommandReceipt,
+  ConfirmRequest,
   DocumentKind,
-  FullState,
-  SessionState,
-  StagedPreview,
-  SubmitResult,
-  ValidationReport,
+  DocumentUploadResult,
+  FreshRuntimeReadModelResponse,
+  ScenarioSession,
+  SnapshotHello,
+  Stage1ControlServerMessage,
 } from '@/contracts'
 
-export interface ScenarioSummary {
-  scenarioId: string
-  sessionState: SessionState
-  epochId?: string
-  preview?: StagedPreview
+export type TransportConnection = { close(): void }
+
+/** Runtime control operations the workbench UI issues (wire canonical names). */
+export type RuntimeControlOperation =
+  | 'start'
+  | 'pause'
+  | 'resume'
+  | 'stop'
+  | 'reset'
+  | 'set_time_scale'
+
+/** A-07: canonical command body minus the envelope fields the transport fills in. */
+export interface ControlCommandInput {
+  operation: RuntimeControlOperation
+  args: Record<string, unknown>
 }
 
-export interface TransportConnection {
-  close(): void
+/** A-06: snapshot WS now delivers a JSON SnapshotHello before binary frames. */
+export interface SnapshotHandlers {
+  onHello(hello: SnapshotHello): void
+  onFrame(buffer: ArrayBuffer): void
 }
 
 export interface GatewayTransport {
-  createScenario(): Promise<ScenarioSummary>
-  uploadDocument(scenarioId: string, kind: DocumentKind, file: File): Promise<ValidationReport>
+  /** POST /scenarios -> 201 ScenarioSession */
+  createScenario(): Promise<ScenarioSession>
+  /** PUT /scenarios/{id}/documents/{kind} (raw document body) -> 200 DocumentUploadResult */
+  uploadDocument(scenarioId: string, kind: DocumentKind, file: File): Promise<DocumentUploadResult>
+  /** POST /scenarios/{id}/confirm/{kind} (ConfirmRequest) -> 200 ScenarioSession */
   confirmDocument(
     scenarioId: string,
     kind: DocumentKind,
-    revision: number,
-    upstream: Partial<Record<DocumentKind, number>>,
-  ): Promise<StagedPreview>
-  build(scenarioId: string): Promise<FullState>
+    body: ConfirmRequest,
+  ): Promise<ScenarioSession>
+  /** POST /scenarios/{id}/build -> 202 BuildJob (async; poll buildStatus) */
+  build(scenarioId: string): Promise<BuildJob>
+  /** GET /scenarios/{id}/builds/{build_job_id} -> 200 BuildStatusResponse */
+  buildStatus(scenarioId: string, buildJobId: string): Promise<BuildStatusResponse>
+  /** POST /scenarios/{id}/commands (CanonicalCommandRequest) -> 202 CommandReceipt */
   control(
     scenarioId: string,
     epochId: string,
-    operation: 'START' | 'PAUSE' | 'RESUME' | 'STOP' | 'RESET' | 'RATE',
-    args?: Record<string, unknown>,
-  ): Promise<SubmitResult>
-  submit(scenarioId: string, text: string, epochId: string): Promise<SubmitResult>
+    command: ControlCommandInput,
+  ): Promise<CommandReceipt>
+  /** GET /scenarios/{id}/state -> 200 FreshRuntimeReadModelResponse (A-10) */
+  state(scenarioId: string): Promise<FreshRuntimeReadModelResponse>
+  /** control WS: client hello then Stage1ControlServerMessage stream */
   connectControl(
     scenarioId: string,
-    onMessage: (message: ControlMessage) => void,
+    epochId: string,
+    onMessage: (message: Stage1ControlServerMessage) => void,
     onState: (connected: boolean) => void,
   ): TransportConnection
+  /** snapshot WS: SnapshotClientHello out; JSON SnapshotHello then binary frames in */
   connectSnapshot(
     scenarioId: string,
-    onFrame: (buffer: ArrayBuffer) => void,
+    epochId: string,
+    handlers: SnapshotHandlers,
     onState: (connected: boolean) => void,
   ): TransportConnection
 }
