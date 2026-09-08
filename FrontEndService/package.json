@@ -8,6 +8,7 @@
   },
   "scripts": {
     "dev": "vite",
+    "sync:contracts": "node scripts/sync-lbs-contracts.mjs",
     "build": "vue-tsc -b && vite build",
     "preview": "vite preview",
     "typecheck": "vue-tsc -b",

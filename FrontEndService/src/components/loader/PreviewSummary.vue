@@ -1,11 +1,12 @@
 <script setup lang="ts">
 import { useSessionStore } from '@/stores/sessionStore'
+// A-09: StagedPreviewSummary — coordinate mode derives from coordinate_summary.type.
 const session = useSessionStore()
 </script>
 <template>
   <section class="summary">
-    <div><span>Preview revision</span><strong class="mono">{{ session.preview?.preview_revision_u64 ?? 0 }}</strong></div>
-    <div><span>Coordinate frame</span><strong>{{ session.preview?.coordinate_mode ?? '—' }}</strong></div>
+    <div><span>Preview revision</span><strong class="mono">{{ session.previewRevision }}</strong></div>
+    <div><span>Coordinate frame</span><strong>{{ session.preview?.coordinate_summary?.type ?? '—' }}</strong></div>
     <div v-for="(count, key) in session.preview?.object_counts" :key="key"><span>{{ key }}</span><strong class="mono">{{ count }}</strong></div>
   </section>
 </template>

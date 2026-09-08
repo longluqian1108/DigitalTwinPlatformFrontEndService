@@ -1,4 +1,4 @@
-import type { SnapshotFrame, SnapshotStaticEntry } from '@/contracts'
+import type { SnapshotFrame, SnapshotStaticTable } from '@/contracts'
 import { snapshotBuffer } from './SnapshotBuffer'
 
 export class SnapshotPipeline {
@@ -21,8 +21,9 @@ export class SnapshotPipeline {
     }
     this.worker.onerror = () => this.onError('Snapshot Worker crashed')
   }
-  setStaticTable(entries: SnapshotStaticEntry[]) {
-    this.worker.postMessage({ type: 'static', ids: entries.map((entry) => entry.aircraft_int_u32) })
+  // A-06: wire static table entries carry `aircraft_int` (not aircraft_int_u32).
+  setStaticTable(entries: SnapshotStaticTable['entries']) {
+    this.worker.postMessage({ type: 'static', ids: entries.map((entry) => entry.aircraft_int) })
   }
   accept(buffer: ArrayBuffer) {
     this.worker.postMessage({ type: 'frame', buffer }, [buffer])

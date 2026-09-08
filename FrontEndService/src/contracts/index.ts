@@ -1,39 +1,77 @@
-export const CONTRACT_VERSION = '1.0.0' as const
+/**
+ * Frontend contract surface.
+ *
+ * A-00/A-09 (docs/frontend-alignment/2026-09-05-frontend-adaptation-guide.md):
+ * every wire shape is imported from the vendored backend generated contracts
+ * (`src/contracts/lightbluesky/`, synced by `npm run sync:contracts`, DO NOT EDIT).
+ * This module re-exports the wire types the app consumes and keeps ONLY
+ * frontend-internal view types (clearly separated from wire types).
+ */
+import type {
+  CommandReceipt,
+  CommandStatusView,
+  ControlEventEnvelope,
+  EnvironmentFrameReadModel,
+  ScenarioSession,
+  ValidationIssue,
+  ValidationReport,
+} from './lightbluesky/types/contracts'
 
-export type DocumentKind = 'environment' | 'resource' | 'task'
-export type DocumentSlotState = 'EMPTY' | 'VALID' | 'INVALID' | 'CONFIRMED'
-export type SessionState =
-  | 'EMPTY'
-  | 'STAGED'
-  | 'BUILDING'
-  | 'BUILD_FAILED'
-  | 'READY'
-  | 'RUNNING'
-  | 'PAUSED'
-  | 'STOPPED'
-  | 'WORKER_FAILED'
-  | 'CLOSED'
+// ---------------------------------------------------------------------------
+// Wire contract re-exports (single source: backend generated contracts, v1.0.0)
+// ---------------------------------------------------------------------------
+export { CONTRACT_VERSION } from './lightbluesky/client/contracts-client'
+
+export type {
+  AircraftReadModel,
+  BuildJob,
+  BuildReadyResult,
+  BuildStatusResponse,
+  CommandReceipt,
+  CommandStatusPayload,
+  CommandStatusView,
+  ConfirmRequest,
+  ControlClientHello,
+  ControlCommandStatus,
+  ControlEvent,
+  ControlEventEnvelope,
+  ControlFullState,
+  ControlServerHello,
+  DocumentUploadResult,
+  EnvironmentReadModel,
+  FreshRuntimeReadModelResponse,
+  GatewayError,
+  ReadModelDelta,
+  ResourceReadModel,
+  RuntimeReadModel,
+  ScenarioSession,
+  SnapshotHello,
+  SnapshotClientHello,
+  SnapshotStaticTable,
+  Stage1ControlServerMessage,
+  StagedPreviewSummary,
+  TaskReadModel,
+  ValidationIssue,
+  ValidationReport,
+  WarningProjection,
+} from './lightbluesky/types/contracts'
+
+// Derived wire aliases (no local re-shapes; carved from the generated types).
+export type SessionState = ScenarioSession['state']
+export type DocumentKind = ValidationIssue['document_kind']
+export type DocumentSlotState = ScenarioSession['document_slots']['environment']['state']
+export type CoordinateMode = EnvironmentFrameReadModel['type']
+export type Severity = ControlEventEnvelope['severity']
+export type ActivityStatus = CommandReceipt | CommandStatusView
+
+// ---------------------------------------------------------------------------
+// Frontend-internal types (never wire shapes; local view/store concerns only)
+// ---------------------------------------------------------------------------
+
+/** Local WS connection lifecycle (not a wire concept). */
 export type ConnectionState = 'idle' | 'connecting' | 'connected' | 'disconnected' | 'failed'
 
-export interface ValidationIssue {
-  severity: 'error' | 'warning'
-  code: string
-  document_kind: DocumentKind
-  json_pointer: string
-  object_kind?: string
-  object_id?: string
-  message: string
-}
-
-export interface ValidationReport {
-  valid: boolean
-  slot_revision_u64: number
-  preview_revision_u64: number
-  schema_version: string
-  errors: ValidationIssue[]
-  warnings: ValidationIssue[]
-}
-
+/** Local per-slot upload view state; wire slot state lives in ScenarioSession. */
 export interface DocumentSlot {
   kind: DocumentKind
   state: DocumentSlotState
@@ -44,188 +82,23 @@ export interface DocumentSlot {
   report?: ValidationReport
 }
 
-export type CoordinateMode = 'virtual_enu' | 'real_world_wgs84'
-
-export interface PreviewPoint {
-  id: string
-  label: string
-  x: number
-  y: number
-  kind: 'aircraft' | 'facility' | 'obstacle'
-}
-export interface PreviewRoute {
-  id: string
-  taskId: string
-  points: Array<{ x: number; y: number }>
-}
-export interface StagedPreview {
-  contract_version: typeof CONTRACT_VERSION
-  scenario_id: string
-  preview_revision_u64: number
-  preview_stage: DocumentKind | 'empty' | 'complete'
-  build_eligible: boolean
-  coordinate_mode: CoordinateMode
-  extent: [number, number, number, number]
-  object_counts: Record<string, number>
-  points: PreviewPoint[]
-  routes: PreviewRoute[]
-}
-
+/** Freshness watermark the UI stores alongside read model collections (A-04). */
 export interface Freshness {
   epoch_id: string
-  generation: number
-  tick_index: number
-  t_s: number
+  source_generation: number
+  source_tick_index: number
+  source_t_s: number
 }
 
-export interface RuntimeReadModel extends Freshness {
-  session_state: SessionState
-  time_scale: number
-  backend: 'MOCK' | 'CPU' | 'CUDA'
-  snapshot_publish_hz: number
-}
-
-export interface TaskReadModel {
-  task_id: string
-  lifecycle: 'PLANNED' | 'ACTIVE' | 'COMPLETED' | 'CANCELLED'
-  phase?: 'PRE_GROUND' | 'RUNNING' | 'POST_GROUND'
-  aircraft_id?: string
-  origin: string
-  destination: string
-  scheduled_takeoff_s: number
-  remaining_route_count: number
-  held: boolean
-  delayed: boolean
-  blocking_reason?: string
-}
-
-export interface AircraftReadModel {
-  aircraft_id: string
-  display_name: string
-  model_type: string
-  resource_state: 'AVAILABLE' | 'ASSIGNED' | 'EXECUTING' | 'DESTROYED'
-  task_id?: string
-  placed: boolean
-  destroyed: boolean
-}
-
-export interface FacilityReadModel {
-  resource_id: string
-  kind: 'HANGAR' | 'PAD' | 'RUNWAY_END'
-  availability: 'OPEN' | 'CLOSED' | 'BLOCKED'
-  owner_task_ids: string[]
-  occupancy_aircraft_ids: string[]
-  blocking_reason?: string
-}
-
-export interface EnvironmentReadModel {
-  coordinate_mode: CoordinateMode
-  obstacle_count: number
-  airspace_zone_count: number
-  overlay_count: number
-}
-
-export interface FullState {
-  runtime: RuntimeReadModel
-  tasks: TaskReadModel[]
-  aircraft: AircraftReadModel[]
-  facilities: FacilityReadModel[]
-  environment: EnvironmentReadModel
-}
-
-export type Severity = 'info' | 'warning' | 'error' | 'fatal'
-export interface EventEnvelope {
-  type: 'event'
-  protocol_version: typeof CONTRACT_VERSION
+/** A-12: local synthetic "connection boundary" marker; it never comes from the wire. */
+export interface LocalBoundaryEntry {
+  kind: 'boundary'
   epoch_id: string
-  event_sequence: number
-  event_name: string
-  severity: Severity
-  tick_index: number
-  t_s: number
-  primary_subject: { kind: string; id: string }
-  reason_code: string
   message: string
+  read: boolean
 }
 
-export interface SnapshotStaticEntry {
-  aircraft_int_u32: number
-  aircraft_id: string
-  profile_id: string
-  model_type: string
-  display_name: string
-}
-
-export type CommandStatus = 'QUEUED' | 'ACCEPTED' | 'UNABLE'
-export interface CommandStatusView {
-  type: 'command_status'
-  protocol_version: typeof CONTRACT_VERSION
-  command_id: string
-  epoch_id: string
-  canonical_ingress_sequence: number
-  status: CommandStatus
-  operation: string
-  final_generation?: number
-  final_tick_index?: number
-  final_t_s?: number
-  reason_code?: string
-  message?: string
-  result?: Record<string, unknown>
-}
-
-export interface GatewayError {
-  error: { code: string; message: string; details?: Record<string, unknown> }
-}
-
-export interface FreshResponse<T = unknown> extends Freshness {
-  data: T
-}
-export interface CommandSubmission {
-  text: string
-  command_id?: string
-  epoch_id: string
-}
-export type SubmitResult =
-  | { kind: 'error'; error: GatewayError }
-  | { kind: 'query'; response: FreshResponse }
-  | { kind: 'command'; receipt: CommandStatusView }
-
-export type ControlMessage =
-  | {
-      type: 'hello'
-      protocol_version: typeof CONTRACT_VERSION
-      epoch_id: string
-      control_sequence: number
-    }
-  | {
-      type: 'full_state'
-      protocol_version: typeof CONTRACT_VERSION
-      epoch_id: string
-      control_sequence: number
-      state: FullState
-    }
-  | {
-      type: 'snapshot_static_table'
-      protocol_version: typeof CONTRACT_VERSION
-      epoch_id: string
-      control_sequence: number
-      entries: SnapshotStaticEntry[]
-    }
-  | EventEnvelope
-  | CommandStatusView
-  | {
-      type: 'connection_boundary'
-      protocol_version: typeof CONTRACT_VERSION
-      epoch_id: string
-      message: string
-    }
-  | {
-      type: 'worker_failed'
-      protocol_version: typeof CONTRACT_VERSION
-      epoch_id: string
-      message: string
-    }
-
+/** Decoded ViewerSnapshot frame (frontend decode output, ABI-identical; A-11 kept). */
 export interface SnapshotFrame {
   epochId: string
   sequence: bigint
@@ -239,4 +112,7 @@ export interface SnapshotFrame {
   headings: Float32Array
   horizontalSpeeds: Float32Array
   verticalSpeeds: Float32Array
+  aircraftExecutionStates: Uint8Array
+  flags: Uint16Array
+  ownerWorkcellIds: Uint32Array
 }

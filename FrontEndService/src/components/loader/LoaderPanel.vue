@@ -10,7 +10,7 @@ import { useSessionStore } from '@/stores/sessionStore'
 defineProps<{ open: boolean }>()
 const emit = defineEmits<{ 'update:open': [value: boolean]; build: [] }>()
 const session = useSessionStore(), order: DocumentKind[] = ['environment', 'resource', 'task']
-const progress = computed(() => Object.values(session.slots).filter((slot) => slot.state === 'CONFIRMED').length / 3 * 100)
+const progress = computed(() => order.filter((kind) => session.slots[kind].state === 'CONFIRMED').length / 3 * 100)
 function enabled(kind: DocumentKind) { const index = order.indexOf(kind); return index === 0 || session.slots[order[index - 1]!].state === 'CONFIRMED' }
 </script>
 

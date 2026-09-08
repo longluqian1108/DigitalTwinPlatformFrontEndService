@@ -1,18 +1,17 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import { computed } from 'vue'
 import { useConnectionStore } from '@/stores/connectionStore'
 import { useRuntimeStore } from '@/stores/runtimeStore'
 import { useSessionStore } from '@/stores/sessionStore'
-const connection = useConnectionStore(), session = useSessionStore(), runtime = useRuntimeStore(), clock = ref(performance.now())
-let timer = 0
-onMounted(() => { timer = window.setInterval(() => { clock.value = performance.now() }, 250) })
-onBeforeUnmount(() => window.clearInterval(timer))
-const stale = computed(() => runtime.state === 'RUNNING' && connection.snapshot === 'connected' && connection.lastSnapshotAt > 0 && clock.value - connection.lastSnapshotAt > 2_000 / Math.max(runtime.model.snapshot_publish_hz, 1))
+// A-09: snapshot staleness now uses the server-reported snapshot_lag_s from the
+// generated RuntimeReadModel (snapshot_publish_hz no longer exists on the wire).
+const connection = useConnectionStore(), session = useSessionStore(), runtime = useRuntimeStore()
 const banners = computed(() => [
   session.error,
-  connection.control === 'disconnected' && session.sessionState !== 'EMPTY' ? 'Control connection disconnected. The last committed state is stale.' : '',
+  connection.control === 'disconnected' && session.sessionState === 'RUNNING' ? 'Control connection disconnected. The last committed state is stale.' : '',
   connection.snapshot === 'disconnected' && session.sessionState === 'RUNNING' ? 'Snapshot connection disconnected. The renderer is frozen.' : '',
-  stale.value ? 'Snapshot stream is stale. The renderer is holding the last authoritative frame.' : '',
+  runtime.model.snapshot_lag_s > 2 ? `Snapshot stream is stale (lag ${runtime.model.snapshot_lag_s.toFixed(1)}s). The renderer is holding the last authoritative frame.` : '',
+  runtime.error,
   connection.snapshotError,
   connection.workerFailure
 ].filter(Boolean))

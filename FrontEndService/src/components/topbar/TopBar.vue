@@ -18,7 +18,7 @@ const session = useSessionStore(), runtime = useRuntimeStore(), connections = us
     </div>
     <NButton size="small" secondary type="info" @click="$emit('openLoader')">Loader</NButton>
     <div class="runtime mono">
-      <div><span>STATE</span><strong :class="runtime.state.toLowerCase()">{{ runtime.state }}</strong></div>
+      <div><span>STATE</span><strong :class="session.sessionState.toLowerCase()">{{ session.sessionState }}</strong></div>
       <div><span>EPOCH</span><strong>{{ session.epochId ? session.epochId.slice(0, 8) : '—' }}</strong></div>
       <div><span>TICK</span><strong>{{ runtime.model.tick_index }}</strong></div>
       <div><span>T+ SEC</span><strong>{{ runtime.model.t_s.toFixed(1) }}</strong></div>

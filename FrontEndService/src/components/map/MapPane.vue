@@ -8,8 +8,9 @@ import { useEnvironmentStore } from '@/stores/environmentStore'
 import { useSelectionStore } from '@/stores/selectionStore'
 import { useSessionStore } from '@/stores/sessionStore'
 const session = useSessionStore(), environment = useEnvironmentStore(), selection = useSelectionStore(), commands = useCommandStore(), dimension = ref<'2D' | '3D'>('2D')
-const mode = computed(() => environment.model?.coordinate_mode ?? session.preview?.coordinate_mode ?? 'virtual_enu')
-function draft() { if (selection.selectedId?.startsWith('AC-')) commands.fillDraft(`POS ${selection.selectedId}`) }
+// A-09: coordinate mode now derives from the environment read model frame type.
+const mode = computed(() => environment.model?.frame.type ?? session.preview?.coordinate_summary?.type ?? 'virtual_enu')
+function draft() { if (selection.selectedId) commands.fillDraft(`pos ${selection.selectedId}`) }
 </script>
 <template>
   <section class="map-pane panel">

@@ -1,0 +1,6 @@
+generator: scripts/sync-lbs-contracts.mjs
+source_root: Simulator-authority-worktree/generated/typescript/lightbluesky-contracts
+backend_commit: 62f0378924c228c52f3443c7a40306b88b343e2e
+tree_sha256: abdc5afee6bdec859429d7aa8e8719737cde6b201147beb6f59090a120f92ae7
+files: 5
+note: DO NOT EDIT - vendored from backend generated contracts; refresh via scripts/sync-lbs-contracts.mjs

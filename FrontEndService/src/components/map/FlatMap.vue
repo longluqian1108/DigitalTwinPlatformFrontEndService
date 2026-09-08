@@ -2,16 +2,27 @@
 import { onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { snapshotBuffer } from '@/snapshot/SnapshotBuffer'
 import { interpolatePosition } from '@/snapshot/hermite'
+import { useConnectionStore } from '@/stores/connectionStore'
 import { useSelectionStore } from '@/stores/selectionStore'
-import { useSessionStore } from '@/stores/sessionStore'
+import { useSessionStore, aircraftDisplayName, computeDisplayExtent, projectToViewport } from '@/stores/sessionStore'
 
-const canvas = ref<HTMLCanvasElement>(), session = useSessionStore(), selection = useSelectionStore()
+const canvas = ref<HTMLCanvasElement>(), session = useSessionStore(), selection = useSelectionStore(), connection = useConnectionStore()
 let context: CanvasRenderingContext2D | null = null, observer: ResizeObserver | undefined, raf = 0, transitionStart = performance.now()
-const extent = () => session.preview?.extent ?? [-500, -350, 500, 350]
+// A-09/P-02 + R17 rev-4: the collections endpoints are still pending, but the
+// backend-validated uploads now feed the private pad/waypoint/route display
+// data, and the view box frames those business objects (safety margin +
+// minimum span) instead of the full environment extent.
+function currentExtent(): [number, number, number, number] {
+  const aircraftPoints: Array<{ e: number; n: number }> = []
+  const current = snapshotBuffer.current
+  if (current && selection.layers.aircraft) {
+    for (let i = 0; i < current.aircraftCount; i += 1) aircraftPoints.push({ e: current.positions[i * 3] ?? 0, n: current.positions[i * 3 + 1] ?? 0 })
+  }
+  return computeDisplayExtent(session.mapDisplay.pads, session.mapDisplay.waypoints, aircraftPoints, session.preview?.extent)
+}
 function project(x: number, y: number) {
-  const [minX, minY, maxX, maxY] = extent(), width = canvas.value?.clientWidth ?? 1, height = canvas.value?.clientHeight ?? 1
-  const scale = Math.min(width / (maxX - minX), height / (maxY - minY)) * .88
-  return { x: width / 2 + (x - (minX + maxX) / 2) * scale, y: height / 2 - (y - (minY + maxY) / 2) * scale }
+  const width = canvas.value?.clientWidth ?? 1, height = canvas.value?.clientHeight ?? 1
+  return projectToViewport(x, y, currentExtent(), width, height)
 }
 function draw() {
   raf = requestAnimationFrame(draw); const element = canvas.value
@@ -28,12 +39,31 @@ function drawGrid(width: number, height: number) {
   const origin = project(0, 0); context.strokeStyle = '#31536c'; context.beginPath(); context.moveTo(0, origin.y); context.lineTo(width, origin.y); context.moveTo(origin.x, 0); context.lineTo(origin.x, height); context.stroke()
 }
 function drawPreview() {
-  if (!context || !session.preview) return
-  if (selection.layers.route) for (const route of session.preview.routes) { context.beginPath(); route.points.forEach((point, i) => { const p = project(point.x, point.y); i ? context!.lineTo(p.x, p.y) : context!.moveTo(p.x, p.y) }); context.strokeStyle = '#5b8ff9'; context.lineWidth = 2; context.setLineDash([7, 5]); context.stroke(); context.setLineDash([]) }
-  for (const point of session.preview.points) {
-    if ((point.kind === 'facility' && !selection.layers.facility) || (point.kind === 'obstacle' && !selection.layers.obstacle)) continue
-    const p = project(point.x, point.y); context.fillStyle = point.kind === 'obstacle' ? '#ffbd45' : '#39d98a'; context.fillRect(p.x - 4, p.y - 4, 8, 8); context.fillStyle = '#9fb6c5'; context.font = '10px sans-serif'; context.fillText(point.label, p.x + 8, p.y + 3)
+  const ctx = context
+  if (!ctx) return
+  ctx.lineWidth = 1
+  for (const route of session.mapDisplay.routes) {
+    if (route.points.length < 2) continue
+    ctx.strokeStyle = '#b772e6'; ctx.setLineDash([6, 4]); ctx.beginPath()
+    route.points.forEach((point, index) => { const p = project(point.e, point.n); if (index === 0) ctx.moveTo(p.x, p.y); else ctx.lineTo(p.x, p.y) })
+    ctx.stroke(); ctx.setLineDash([])
   }
+  for (const pad of session.mapDisplay.pads) {
+    const p = project(pad.e, pad.n)
+    const radius = Math.max(4, pad.radiusM * (project(pad.e + 1, pad.n).x - p.x))
+    ctx.strokeStyle = '#49c6e5'; ctx.fillStyle = '#49c6e522'
+    ctx.beginPath(); ctx.arc(p.x, p.y, radius, 0, Math.PI * 2); ctx.fill(); ctx.stroke()
+    ctx.fillStyle = '#9fd8ea'; ctx.font = '10px monospace'; ctx.fillText(pad.label || pad.padId, p.x + radius + 3, p.y - radius - 3)
+  }
+  for (const waypoint of session.mapDisplay.waypoints) {
+    const p = project(waypoint.e, waypoint.n)
+    ctx.fillStyle = '#ffbd45'
+    ctx.beginPath(); ctx.moveTo(p.x, p.y - 4); ctx.lineTo(p.x + 4, p.y + 3); ctx.lineTo(p.x - 4, p.y + 3); ctx.closePath(); ctx.fill()
+    ctx.fillStyle = '#ffd9a0'; ctx.font = '9px monospace'; ctx.fillText(waypoint.waypointId, p.x + 7, p.y + 3)
+  }
+}
+function aircraftLabel(aircraftInt: number) {
+  return aircraftDisplayName(connection.staticTable, aircraftInt)
 }
 function drawAircraft() {
   if (!context || !selection.layers.aircraft || !snapshotBuffer.current) return
@@ -47,7 +77,7 @@ function drawAircraft() {
       { x: previous.positions[i * 3] ?? 0, y: previous.positions[i * 3 + 1] ?? 0, z: previous.positions[i * 3 + 2] ?? 0 },
       { x: previous.velocities[i * 3] ?? 0, y: previous.velocities[i * 3 + 1] ?? 0, z: previous.velocities[i * 3 + 2] ?? 0 }, currentPos,
       { x: current.velocities[i * 3] ?? 0, y: current.velocities[i * 3 + 1] ?? 0, z: current.velocities[i * 3 + 2] ?? 0 }, previous.tS, current.tS, renderT, 100)
-    const p = project(pos.x, pos.y), id = `AC-${100 + (current.aircraftIds[i] ?? 0)}`, selected = selection.selectedId === id
+    const p = project(pos.x, pos.y), id = aircraftLabel(current.aircraftIds[i] ?? 0), selected = selection.selectedId === id
     context.save(); context.translate(p.x, p.y); context.rotate(current.headings[i] ?? 0); context.beginPath(); context.moveTo(9, 0); context.lineTo(-6, -5); context.lineTo(-3, 0); context.lineTo(-6, 5); context.closePath(); context.fillStyle = selected ? '#ffbd45' : '#49c6e5'; context.shadowColor = context.fillStyle; context.shadowBlur = selected ? 14 : 6; context.fill(); context.restore()
     context.fillStyle = selected ? '#ffda8d' : '#8fb4ca'; context.font = '9px monospace'; context.fillText(`${id}  ${Math.round(pos.z)}m`, p.x + 10, p.y - 7)
   }
@@ -55,7 +85,7 @@ function drawAircraft() {
 function click(event: MouseEvent) {
   const current = snapshotBuffer.current; if (!current || !canvas.value) return
   let nearest: { id: string; distance: number } | undefined
-  for (let i = 0; i < current.aircraftCount; i += 1) { const p = project(current.positions[i * 3] ?? 0, current.positions[i * 3 + 1] ?? 0); const d = Math.hypot(p.x - event.offsetX, p.y - event.offsetY); if (d < 22 && (!nearest || d < nearest.distance)) nearest = { id: `AC-${100 + (current.aircraftIds[i] ?? 0)}`, distance: d } }
+  for (let i = 0; i < current.aircraftCount; i += 1) { const p = project(current.positions[i * 3] ?? 0, current.positions[i * 3 + 1] ?? 0); const d = Math.hypot(p.x - event.offsetX, p.y - event.offsetY); if (d < 22 && (!nearest || d < nearest.distance)) nearest = { id: aircraftLabel(current.aircraftIds[i] ?? 0), distance: d } }
   selection.select(nearest?.id)
 }
 function frame() { transitionStart = performance.now() }

@@ -1,38 +1,33 @@
 import { computed, ref } from 'vue'
 import { defineStore } from 'pinia'
-import type { EventEnvelope, Severity } from '@/contracts'
+import type { ControlEventEnvelope, LocalBoundaryEntry, Severity } from '@/contracts'
+
+// A-02/A-12: the store holds wire ControlEventEnvelope entries (unwrapped from
+// the `{type:'event', event:{...}}` envelope) plus local boundary markers that
+// are synthesized on connection loss and never come from the network.
+type EventItem = (ControlEventEnvelope & { read: boolean }) | LocalBoundaryEntry
+export type { EventItem }
 
 export const useEventStore = defineStore('events', () => {
-  const items = ref<Array<EventEnvelope & { read: boolean; boundary?: boolean }>>([]),
+  const items = ref<EventItem[]>([]),
     severity = ref<Severity | 'all'>('all')
+  function isBoundary(event: EventItem): event is LocalBoundaryEntry {
+    return (event as LocalBoundaryEntry).kind === 'boundary'
+  }
   const visible = computed(() =>
     severity.value === 'all'
       ? items.value
-      : items.value.filter((event) => event.severity === severity.value),
+      : items.value.filter((event) => !isBoundary(event) && event.severity === severity.value),
   )
-  function add(event: EventEnvelope) {
+  function add(event: ControlEventEnvelope) {
     items.value.unshift({ ...event, read: false })
     if (items.value.length > 500) items.value.length = 500
   }
   function boundary(epochId: string, message: string) {
-    items.value.unshift({
-      type: 'event',
-      protocol_version: '1.0.0',
-      epoch_id: epochId,
-      event_sequence: -Date.now(),
-      event_name: 'CONNECTION_BOUNDARY',
-      severity: 'warning',
-      tick_index: 0,
-      t_s: 0,
-      primary_subject: { kind: 'connection', id: 'control' },
-      reason_code: 'EVENT_HISTORY_UNAVAILABLE',
-      message,
-      read: true,
-      boundary: true,
-    })
+    items.value.unshift({ kind: 'boundary', epoch_id: epochId, message, read: true })
   }
   function markRead(sequence: number) {
-    const found = items.value.find((event) => event.event_sequence === sequence)
+    const found = items.value.find((event) => !isBoundary(event) && event.sequence === sequence)
     if (found) found.read = true
   }
   return { items, severity, visible, add, boundary, markRead }

@@ -1,6 +1,7 @@
 import { ref } from 'vue'
 import { defineStore } from 'pinia'
-import type { CommandStatusView, FreshResponse, GatewayError, SubmitResult } from '@/contracts'
+import type { ActivityStatus, FreshRuntimeReadModelResponse } from '@/contracts'
+import type { RuntimeControlOperation } from '@/services/GatewayTransport'
 import { gatewayTransport } from '@/services/transport'
 import { useSessionStore } from './sessionStore'
 
@@ -8,48 +9,69 @@ export interface Activity {
   id: string
   input: string
   submittedAt: string
-  error?: GatewayError
-  status?: CommandStatusView
+  error?: { code: string; message: string }
+  status?: ActivityStatus
 }
+
+// A-03/A-07 + P-06 interim: the CLI text box becomes a command palette that only
+// issues enumerated registry operations with JSON args (no cli_text on the wire).
 export const useCommandStore = defineStore('commands', () => {
   const draft = ref(''),
     activities = ref<Activity[]>([]),
-    queryResult = ref<FreshResponse>(),
+    stateResult = ref<FreshRuntimeReadModelResponse>(),
     pending = ref(false)
-  async function submit() {
-    const text = draft.value.trim()
-    if (!text) return
-    const session = useSessionStore(),
-      activity: Activity = {
+
+  async function submit(operation: RuntimeControlOperation | string, argsText: string) {
+    const session = useSessionStore()
+    let args: unknown
+    try {
+      args = JSON.parse(argsText.trim() || '{}')
+    } catch {
+      activities.value.unshift({
         id: crypto.randomUUID(),
-        input: text,
+        input: `${operation} ${argsText}`.trim(),
         submittedAt: new Date().toISOString(),
-      }
+        error: { code: 'INVALID_JSON', message: 'Command arguments are not valid JSON.' },
+      })
+      return
+    }
+    const activity: Activity = {
+      id: crypto.randomUUID(),
+      input: `${operation} ${argsText.trim()}`.trim(),
+      submittedAt: new Date().toISOString(),
+    }
     activities.value.unshift(activity)
-    draft.value = ''
     pending.value = true
     try {
-      applyResult(
-        activity,
-        await gatewayTransport.submit(session.scenarioId, text, session.epochId),
-      )
+      // 202 CommandReceipt; the final ACCEPTED/UNABLE view arrives on the control WS.
+      activity.status = await gatewayTransport.control(session.scenarioId, session.epochId, {
+        operation: operation as RuntimeControlOperation,
+        args: args as Record<string, unknown>,
+      })
     } catch (cause) {
       activity.error = {
-        error: {
-          code: 'TRANSPORT_ERROR',
-          message: cause instanceof Error ? cause.message : 'Command transport failed',
-        },
+        code: (cause as unknown as { code?: string }).code ?? 'TRANSPORT_ERROR',
+        message: cause instanceof Error ? cause.message : 'Command transport failed',
       }
     } finally {
       pending.value = false
     }
   }
-  function applyResult(activity: Activity, result: SubmitResult) {
-    if (result.kind === 'error') activity.error = result.error
-    else if (result.kind === 'query') queryResult.value = result.response
-    else activity.status = result.receipt
+
+  // A-10: refresh the read model via GET /state (stale banner when WORKER_FAILED).
+  async function refreshState() {
+    const session = useSessionStore()
+    try {
+      stateResult.value = await gatewayTransport.state(session.scenarioId)
+    } catch (cause) {
+      stateResult.value = undefined
+      throw cause
+    }
   }
-  function update(status: CommandStatusView) {
+
+  // A-03: unpack the {type:'command_status', status, control_sequence} envelope.
+  function update(message: { status: ActivityStatus }) {
+    const status = message.status
     const activity = activities.value.find((item) => item.status?.command_id === status.command_id)
     if (activity) activity.status = status
     else
@@ -63,5 +85,5 @@ export const useCommandStore = defineStore('commands', () => {
   function fillDraft(value: string) {
     draft.value = value
   }
-  return { draft, activities, queryResult, pending, submit, update, fillDraft }
+  return { draft, activities, stateResult, pending, submit, refreshState, update, fillDraft }
 })
